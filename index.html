@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Catur AI HD</title>
+  <style>
+    body { margin: 0; background-color: #111; display: flex; flex-direction: column; align-items: center; font-family: sans-serif; color: white; padding: 10px; }
+    #board { display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); border: 5px solid #643f12; width: 90vmin; height: 90vmin; max-width: 500px; max-height: 500px; margin-top: 20px; transform: rotateX(0deg); }
+    .square { display: flex; justify-content: center; align-items: center; font-size: calc(90vmin / 8 * 0.8); user-select: none; }
+    .white { background-color: #ccc; }
+    .black { background-color: #643f12; }
+    .highlight { background-color: green !important; }
+  </style>
+</head>
+<body>
+  <h3>Catur AI HD</h3>
+  <div id="board"></div>
+  <p id="status">Status: Siap!</p>
+
+  <audio id="sound-move" src="https://freesound.org/data/previews/397/397265_5121236-lq.mp3" preload="auto"></audio>
+  <audio id="sound-capture" src="https://freesound.org/data/previews/397/397266_5121236-lq.mp3" preload="auto"></audio>
+  <audio id="sound-check" src="https://freesound.org/data/previews/397/397267_5121236-lq.mp3" preload="auto"></audio>
+
+  <script>
+    function loadScript(src, callback) {
+      const script = document.createElement('script');
+      script.src = src;
+      script.onload = callback;
+      script.onerror = () => console.error('Gagal memuat library:', src);
+      document.head.appendChild(script);
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      loadScript('https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js', function() {
+        if (typeof Chess !== 'function') {
+          console.error('Chess.js gagal dimuat.');
+          document.getElementById('status').textContent = 'Gagal memuat library catur.';
+          return;
+        }
+
+        const boardElem = document.getElementById('board');
+        const status = document.getElementById('status');
+        const moveSound = document.getElementById('sound-move');
+        const captureSound = document.getElementById('sound-capture');
+        const checkSound = document.getElementById('sound-check');
+        const game = new Chess();
+        let selected = null;
+        let possibleMoves = [];
+        let isWhiteTurn = true;
+
+        const pieceUnicode = { 'p':'♟','r':'♜','n':'♞','b':'♝','q':'♛','k':'♚','P':'♙','R':'♖','N':'♘','B':'♗','Q':'♕','K':'♔' };
+
+        function playSound(move) {
+          if (move.flags.includes('c') || move.flags.includes('e')) captureSound.play();
+          else moveSound.play();
+          if (game.in_check() && !game.in_checkmate()) setTimeout(() => checkSound.play(), 200);
+        }
+
+        function renderBoard() {
+          boardElem.innerHTML = '';
+          const board = game.board();
+          const renderRows = isWhiteTurn ? [...Array(8).keys()] : [...Array(8).keys()].reverse();
+          const renderCols = isWhiteTurn ? [...Array(8).keys()] : [...Array(8).keys()].reverse();
+
+          renderRows.forEach(i => {
+            renderCols.forEach(j => {
+              const sq = document.createElement('div');
+              sq.className = 'square ' + (((i + j) % 2 === 0) ? 'white' : 'black');
+              const file = String.fromCharCode(97 + j), rank = 8 - i;
+              const square = file + rank;
+              sq.dataset.square = square;
+              if (possibleMoves.includes(square)) sq.classList.add('highlight');
+              const piece = board[i][j];
+              if (piece) sq.textContent = pieceUnicode[piece.color === 'w' ? piece.type.toUpperCase() : piece.type];
+              sq.addEventListener('click', () => onSquareClick(square));
+              boardElem.appendChild(sq);
+            });
+          });
+        }
+
+        function onSquareClick(square) {
+          if (selected && possibleMoves.includes(square)) {
+            const move = game.move({ from: selected, to: square, promotion: 'q' });
+            if (move) {
+              playSound(move);
+              status.textContent = `Status: ${move.san}` + (game.in_checkmate() ? ' - Skakmat!' : game.in_check() ? ' - Skak!' : '');
+              selected = null; possibleMoves = [];
+              isWhiteTurn = !isWhiteTurn;
+            }
+          } else {
+            const moves = game.moves({ square, verbose: true });
+            if (moves.length) { selected = square; possibleMoves = moves.map(m => m.to); status.textContent = 'Status: Pilih tujuan.'; }
+          }
+          renderBoard();
+        }
+
+        renderBoard();
+      });
+    });
+  </script>
+</body>
+</html>
